@@ -1,0 +1,1671 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[UTF8]{ctex}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{fontspec}
+\usepackage{longtable}
+
+\geometry{left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm}
+
+% 代码样式
+\lstset{
+    basicstyle=\small\ttfamily,
+    backgroundcolor=\color{gray!10},
+    frame=single,
+    rulecolor=\color{gray!30},
+    breaklines=true,
+    breakatwhitespace=false,
+    columns=flexible,
+    keepspaces=true,
+    tabsize=4,
+    showstringspaces=false,
+    numberstyle=\tiny\color{gray},
+    keywordstyle=\color{blue!70},
+    commentstyle=\color{green!50!black},
+    stringstyle=\color{red!60!black},
+    numbers=left,
+    numbersep=5pt,
+    xleftmargin=2em,
+    framexleftmargin=1.5em
+}
+
+\setlength{\parskip}{4pt}
+\setlength{\parindent}{2em}
+
+\title{\huge \textbf{Git 学习笔记}}
+\author{}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+\newpage
+
+\tableofcontents
+\newpage
+
+%====================================================================
+\section{引言 —— 为什么要用 Git？}
+%====================================================================
+
+\subsection{什么是版本控制？}
+
+假设你在写毕业论文，你一定经历过这样的场景：
+
+\begin{lstlisting}[frame=none, numbers=none]
+毕业论文_初稿.docx
+毕业论文_修改1.docx
+毕业论文_修改2.docx
+毕业论文_最终版.docx
+毕业论文_真的最终版.docx
+毕业论文_打死也不改了.docx
+\end{lstlisting}
+
+这就是\textbf{没有版本控制}的混乱状态。版本控制系统（VCS）就是为了解决这个问题而生——
+它帮你记录每次修改的历史，让你随时可以回到任意版本，还能多人并行协作而不互相覆盖。
+
+\subsection{集中式 vs 分布式}
+
+\begin{longtable}{|p{4cm}|p{5cm}|p{5cm}|}
+\hline
+\textbf{特性} & \textbf{集中式（SVN、CVS）} & \textbf{分布式（Git）} \\
+\hline
+仓库位置 & 只有一个中央服务器 & 每个人本地都有完整仓库 \\
+\hline
+离线工作 & 不行，必须联网 & 可以，大部分操作本地完成 \\
+\hline
+速度 & 慢（大部分操作需要网络） & 快（本地操作） \\
+\hline
+安全性 & 中央服务器挂了就全丢了 & 每个人都是备份 \\
+\hline
+分支代价 & 高（完整复制整个项目） & 极低（只是一个指针） \\
+\hline
+\end{longtable}
+
+\subsection{Git 的诞生}
+
+2005 年，Linux 内核社区和当时的版本控制系统 BitKeeper 闹翻了。Linus Torvalds 花了两周时间，用 C 语言写出了 Git。设计目标是：
+\begin{itemize}[itemsep=3pt]
+    \item 速度飞快
+    \item 设计简单（数据结构精妙但简洁）
+    \item 完全分布式
+    \item 支持非线性开发（成千上万个分支）
+\end{itemize}
+
+如今，Git 已经是全世界最流行的版本控制系统，无论个人项目还是企业级开发，几乎都在用。
+
+%====================================================================
+\section{基本概念 —— 理解 Git 的三个区域}
+%====================================================================
+
+\subsection{工作区、暂存区与仓库}
+
+这是 Git 最核心的抽象，理解了这三个区域，你就理解了 Git 的一半。
+
+\begin{itemize}[itemsep=5pt]
+    \item \textbf{工作区（Working Directory）}
+    \begin{itemize}
+        \item 就是你电脑上看到的文件目录。
+        \item 你在这里编辑文件、写代码、改 bug。
+        \item 这是你可以直接看到、操作的区域。
+    \end{itemize}
+
+    \item \textbf{暂存区（Staging Area / Index）}
+    \begin{itemize}
+        \item 可以理解为一个\textbf{购物车}。
+        \item 你改了一堆文件，但不想一次性全提交。
+        \item 用 \texttt{git add} 把想要提交的文件先放进购物车。
+        \item 暂存区让你可以\textbf{精心挑选}每次提交的内容。
+    \end{itemize}
+
+    \item \textbf{本地仓库（Repository / .git）}
+    \begin{itemize}
+        \item 就是隐藏的 \texttt{.git/} 目录。
+        \item 存着所有的版本历史、分支信息、标签等。
+        \item 相当于 Git 的\textbf{数据库}。
+        \item \texttt{git commit} 就是把暂存区的内容写入这个数据库。
+    \end{itemize}
+\end{itemize}
+
+\subsubsection{完整工作流程}
+
+\begin{lstlisting}[numbers=none]
+初始状态                           git add 之后              git commit 之后
+工作区: 修改了 A B C 三个文件  -->  暂存区: A B C           暂存区: (空)
+                                   工作区: A B C           本地仓库: (记录了一次新版本)
+                                                           工作区: A B C
+\end{lstlisting}
+
+\textbf{打个比方}：你在做饭（工作区），切好的菜放进盘子里（暂存区\ --- 随时可以再加或拿走），
+准备好后一起下锅炒（提交）。每炒好一道菜就是一个版本。
+
+\subsection{Git 对象模型}
+
+Git 本质上是一个\textbf{内容寻址的文件系统}，它用哈希值（SHA-1）来定位所有内容。
+
+\subsubsection{四种核心对象}
+
+\begin{enumerate}[itemsep=5pt]
+    \item \textbf{blob（Binary Large Object）}
+    \begin{itemize}
+        \item 存储\textbf{文件内容}。
+        \item 不包含文件名，只是内容的二进制快照。
+        \item 两个文件即使名字不同，如果内容相同，指向同一个 blob。
+    \end{itemize}
+
+    \item \textbf{tree（树对象）}
+    \begin{itemize}
+        \item 存储\textbf{目录结构}。
+        \item 记录文件名 $\rightarrow$ blob 的映射，以及子目录 $\rightarrow$ tree 的映射。
+        \item 相当于文件系统中的目录（文件夹）。
+    \end{itemize}
+
+    \item \textbf{commit（提交对象）}
+    \begin{itemize}
+        \item 存储一次\textbf{提交快照}。
+        \item 包含：指向一棵 tree、父提交的哈希、作者信息、时间戳、提交消息。
+        \item 每个 commit 就是一个\textbf{版本}。
+    \end{itemize}
+
+    \item \textbf{tag（标签对象）}
+    \begin{itemize}
+        \item 为某个 commit 起一个\textbf{固定的名字}（如 v1.0.0）。
+        \item 分支会移动，但标签不会。
+    \end{itemize}
+\end{enumerate}
+
+\subsubsection{对象之间的关系}
+
+\begin{lstlisting}[numbers=none]
+commit (abc123)
+  |-- 指向 tree (def456)
+  |-- 父提交: 上一个 commit
+  |-- 作者/时间/消息
+        |
+        tree (def456)
+        |-- "main.c"    -->  blob (aaa111)   # 文件内容
+        |-- "util.h"    -->  blob (bbb222)
+        |-- "src/"      -->  tree (ccc333)    # 子目录
+\end{lstlisting}
+
+所有的对象都通过 40 位的 SHA-1 哈希值标识，例如 \texttt{e86a3764c7a5b5e8a440b8e139e4c0e6c2e4d6b8}。
+Git 保证：只要内容不同，哈希值就不同。所以哈希值既是地址，也是校验和。
+
+%====================================================================
+\section{基本操作 —— 从零开始用 Git}
+%====================================================================
+
+\subsection{初始化与配置}
+
+\subsubsection{第一次使用 Git 的必做配置}
+
+\begin{lstlisting}
+# Git 需要知道你是谁，因为每次提交都会记录作者信息
+git config --global user.name "Your Name"
+git config --global user.email "email@example.com"
+
+# 查看所有配置
+git config --list
+
+# 建议：设置默认分支名为 main（旧版 Git 默认是 master）
+git config --global init.defaultBranch main
+\end{lstlisting}
+
+配置文件有三个层级：
+\begin{itemize}[itemsep=3pt]
+    \item \texttt{--system}：系统级，影响所有用户（很少用）
+    \item \texttt{--global}：用户级，影响你的所有仓库（最常用）
+    \item \texttt{--local}：仓库级，只影响当前仓库（默认）
+\end{itemize}
+优先级：local > global > system。
+
+\subsection{初始化仓库}
+
+\begin{lstlisting}
+# 进入你的项目目录
+cd my-project
+
+# 把当前目录变成 Git 仓库（会创建一个 .git/ 隐藏目录）
+git init
+
+# 执行后，你就可以开始用 Git 管理这个目录的文件了
+\end{lstlisting}
+
+\texttt{git init} 只是在当前目录创建了一个 \texttt{.git/} 文件夹，
+你的文件本身没有任何变化，Git 从此开始监视这个目录。
+
+\subsection{文件的生命周期}
+
+每个文件在 Git 中有四种状态：
+
+\begin{lstlisting}[numbers=none]
+Untracked（未跟踪）
+  |-- 文件刚创建，Git 还没有记录它
+  |-- git status 会显示为红色
+  |-- git add 后变成 Staged
+  |
+Tracked（已跟踪）下的三种子状态：
+  |-- Unmodified（未修改）：和仓库里的内容一样
+  |-- Modified（已修改）：改了但还没 add
+  |-- Staged（已暂存）：add 了但还没 commit
+
+状态转换图：
+Untracked  --git add-->  Staged  --git commit-->  Unmodified
+Modified   --git add-->  Staged
+Unmodified --修改文件-->  Modified
+\end{lstlisting}
+
+\subsection{查看状态 —— git status}
+
+这是\textbf{最常用的命令}，没有之一。任何时候不确定当前状态，先敲它。
+
+\begin{lstlisting}
+# 假设你刚 init，目录里只有一个 README.md
+$ git status
+On branch main
+
+No commits yet
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+        README.md
+
+nothing added to commit but untracked files present
+
+# 简洁模式
+$ git status -s
+?? README.md          # ?? 表示 Untracked
+\end{lstlisting}
+
+状态符号含义：
+\begin{itemize}[itemsep=3pt]
+    \item \texttt{??} — 未跟踪
+    \item \texttt{M} — 已修改
+    \item \texttt{A} — 新添加到暂存区
+    \item \texttt{D} — 已删除
+    \item \texttt{R} — 已重命名
+    \item 左列 = 暂存区状态，右列 = 工作区状态
+\end{itemize}
+
+\subsection{添加文件 —— git add}
+
+\begin{lstlisting}
+# 添加单个文件
+git add index.html
+
+# 添加所有变更（新增、修改、删除）
+git add .
+
+# 添加当前目录的所有 .py 文件
+git add *.py
+
+# 交互式逐块添加（可以只提交文件的一部分修改！）
+git add -p
+# 这个命令会逐个"块"询问你是否要暂存
+# y = 暂存这一块, n = 跳过, s = 再拆细, e = 手动编辑
+\end{lstlisting}
+
+\texttt{git add -p} 非常实用。比如你改了某个文件，有些修改是关于修复 bug A，
+有些是添加功能 B，你可以用 \texttt{git add -p} 只暂存 A 的部分，先提交 A，
+再暂存 B 的部分，提交 B。做到\textbf{一次提交只做一件事}。
+
+\subsection{提交 —— git commit}
+
+\begin{lstlisting}
+# 最简单的提交
+git commit -m "修复了登录页面的 bug"
+
+# 提交前自动 add 所有已跟踪文件的修改（不包含新文件）
+git commit -a -m "更新配置文件和文档"
+
+# 修改最近一次提交（如果漏了文件或提交消息写错了）
+git commit --amend
+# 注意：会改变提交的哈希值，不要用于已推送的提交！
+\end{lstlisting}
+
+\textbf{提交的最佳实践}：
+\begin{itemize}[itemsep=3pt]
+    \item 每次提交只做一件事，保持原子性。
+    \item 提交消息要说明\textbf{为什么}修改，而不是\textbf{改了什么}。
+    \item 坏例子：\texttt{修改了 login.py}
+    \item 好例子：\texttt{修复了密码输入过长时的截断 bug}
+\end{itemize}
+
+\subsection{完整的新项目流程示例}
+
+\begin{lstlisting}
+# 1. 初始化
+git init
+git config --global user.name "张三"
+git config --global user.email "zhangsan@example.com"
+
+# 2. 创建文件并提交
+echo "# 我的项目" > README.md
+git add README.md
+git commit -m "docs: 初始化项目说明"
+
+# 3. 写了一些代码后再提交
+git add main.py utils.py
+git commit -m "feat: 添加核心功能和工具模块"
+
+# 4. 改了一堆文件后统一提交
+git add .
+git commit -m "fix: 修复了三处边界条件处理问题"
+
+# 5. 查看历史
+git log --oneline
+\end{lstlisting}
+
+\subsection{查看历史 —— git log}
+
+\begin{lstlisting}
+# 基本查看
+git log
+
+# 最常用的精简模式
+git log --oneline
+# 输出：
+# 3a4b5c6 修复了登录 bug
+# 2b3c4d5 添加了用户注册功能
+# 1a2b3c4 初始化项目
+
+# 图形化查看所有分支
+git log --graph --oneline --all
+# 输出：
+# * 3a4b5c6 (HEAD -> main) 修复了登录 bug
+# | * 4b5c6d7 (feature) 添加了新页面
+# |/
+# * 2b3c4d5 添加了用户注册功能
+
+# 查看每个提交的详细差异
+git log -p
+
+# 查看文件变更统计
+git log --stat
+# 输出：xxx.py | 10 +++++-----
+
+# 按条件筛选
+git log --author="张三"
+git log --since="2024-01-01" --until="2024-12-31"
+git log --grep="bug"
+git log -3                     # 只看最近 3 次提交
+
+# 查看某次提交的详细内容
+git show 3a4b5c6               # 用提交哈希的前几位即可
+\end{lstlisting}
+
+\subsection{比较差异 —— git diff}
+
+\texttt{git diff} 用来查看文件的具体修改内容，是 code review 和检查错误的好帮手。
+
+\begin{lstlisting}
+# 工作区 vs 暂存区（还没 add 的修改）
+git diff
+
+# 暂存区 vs 最近一次提交（准备要提交的内容）
+git diff --staged              # 或 git diff --cached
+
+# 工作区 vs 最近一次提交（所有未提交的修改）
+git diff HEAD
+
+# 两个分支之间的差异
+git diff main feature
+
+# 两次提交之间的差异
+git diff 3a4b5c6 2b3c4d5
+
+# 只看某个文件的差异
+git diff -- README.md
+
+# 忽略空格变化的差异
+git diff -w
+\end{lstlisting}
+
+\textbf{输出解读}：
+\begin{lstlisting}[numbers=none]
+diff --git a/index.html b/index.html
+index e69de29..40559da 100644
+--- a/index.html              # a 版本
++++ b/index.html              # b 版本
+@@ -0,0 +1,3 @@               # 从第0行开始，加了3行
++<html>                       # "+" 表示新增的行
++<head><title>Hello</title></head>
++</html>
+\end{lstlisting}
+
+\subsection{删除与移动}
+
+\begin{lstlisting}
+# 删除文件（同时在文件系统删除 + Git 中记录删除）
+git rm app.log
+
+# 仅从 Git 中移除跟踪，保留本地文件（常见于 .gitignore 问题修复）
+git rm --cached config.yml
+
+# 重命名或移动文件
+git mv oldname.txt newname.txt
+# 等价于：
+# mv oldname.txt newname.txt
+# git rm oldname.txt
+# git add newname.txt
+\end{lstlisting}
+
+\subsection{撤销操作}
+
+撤销是 Git 初学者最常疑问的地方，关键在于区分\textbf{撤销了什么区域}。
+
+\subsubsection{场景一：文件改了但还没 add（工作区级撤销）}
+
+\begin{lstlisting}
+# 用仓库里的版本覆盖工作区的修改（危险！修改会丢失）
+git restore README.md
+# 旧式写法（功能一样）：
+git checkout -- README.md
+\end{lstlisting}
+
+\subsubsection{场景二：已经 add 了但还没 commit（暂存区级撤销）}
+
+\begin{lstlisting}
+# 从暂存区撤出，但保留工作区的修改
+git restore --staged README.md
+# 旧式写法：
+git reset HEAD README.md
+\end{lstlisting}
+
+\subsubsection{场景三：已经 commit 了但还没 push（仓库级撤销）}
+
+\begin{lstlisting}
+# --soft：只移动 HEAD，工作区和暂存区都不动
+# 场景：提交后发现忘了加某个文件
+git reset --soft HEAD~1
+# 现在文件还在暂存区，你只需要重新 commit
+
+# --mixed（默认）：移动 HEAD，清空暂存区但保留工作区
+# 场景：想把提交拆成多个更小的提交
+git reset --mixed HEAD~1
+
+# --hard：完全撤销，丢弃所有修改（非常危险！）
+git reset --hard HEAD~1
+# 场景：提交了错误的代码，想完全不要这次修改
+\end{lstlisting}
+
+\texttt{HEAD~1} 表示 HEAD 的上一个提交，\texttt{HEAD~3} 表示往上数 3 个。
+
+\subsubsection{场景四：已经 push 了（安全的方式）}
+
+\begin{lstlisting}
+# 不要用 reset！因为 reset 会改写历史，push 会被拒绝
+# 正确做法：用 revert 创建一个"反提交"
+git revert HEAD              # 撤销最近一次提交
+git revert 3a4b5c6           # 撤销指定提交
+
+# revert 会创建一个新的提交，内容是"把指定提交的修改反向应用"
+# 这是完全安全的，因为历史没有被改写
+\end{lstlisting}
+
+\subsubsection{撤销操作选择速查表}
+
+\begin{longtable}{|p{3.5cm}|p{4.5cm}|p{4cm}|}
+\hline
+\textbf{状态} & \textbf{推荐命令} & \textbf{安全性} \\
+\hline
+改了还没 add & \texttt{git restore <file>} & 危险，修改丢失 \\
+\hline
+add 了还没 commit & \texttt{git restore --staged <file>} & 安全 \\
+\hline
+commit 了还没 push & \texttt{git reset HEAD\textasciitilde1} & 安全（--hard 除外） \\
+\hline
+已经 push 了 & \texttt{git revert <commit>} & 最安全 \\
+\hline
+\end{longtable}
+
+%====================================================================
+\section{分支管理 —— Git 最强大的特性}
+%====================================================================
+
+\subsection{什么是分支？}
+
+\textbf{分支本质上就是一个指向某次提交的指针}。
+
+类比：想象你正在写一本书（main 分支），突然想尝试另一个写法，但不想影响原来的版本。
+于是你复印了一份（创建分支），在复印件上修改。如果新写法好，就合并回原稿；
+如果不好，扔掉复印件即可。
+
+\subsection{为什么 Git 的分支那么轻量？}
+
+\begin{itemize}[itemsep=3pt]
+    \item SVN 创建分支 = 复制整个项目目录到另一个位置（慢，占空间）
+    \item Git 创建分支 = 创建一个 41 字节的文件，里面只记录一个哈希值（瞬间完成）
+    \item 所以 Git 鼓励\textbf{频繁创建和合并分支}
+\end{itemize}
+
+\texttt{HEAD} 是一个特殊指针，它指向\textbf{你当前在哪个分支上}。
+当你切换分支时，HEAD 就指向另一个分支。
+
+\begin{lstlisting}[numbers=none]
+# 当前在 main 分支
+HEAD -> main -> commit (abc123)
+
+# 创建 feature 分支后
+HEAD -> main -> commit (abc123)
+        feature -> commit (abc123)   # 两个指针指向同一个提交
+
+# 在 feature 上提交后
+HEAD -> main -> commit (abc123)
+        feature -> commit (def456)   # feature 前进了
+\end{lstlisting}
+
+\subsection{分支操作}
+
+\begin{lstlisting}
+# 查看分支
+git branch                     # 本地分支，* 表示当前所在分支
+git branch -r                  # 远程分支（如 origin/main）
+git branch -a                  # 全部
+
+# 创建分支
+git branch feature-login       # 创建分支（基于当前所在位置）
+
+# 切换分支
+git switch feature-login       # 新版命令（推荐）
+git checkout feature-login     # 传统命令
+
+# 创建并切换（一行搞定）
+git switch -c feature-login
+git checkout -b feature-login  # 传统写法
+
+# 重命名分支
+git branch -m old-name new-name
+
+# 删除分支
+git branch -d feature-login    # 只能删除已合并的
+git branch -D feature-login    # 强制删除（不管是否合并）
+
+# 查看每个分支的最后一次提交
+git branch -v
+
+# 查看已合并到当前分支的分支
+git branch --merged
+
+# 查看未合并的分支
+git branch --no-merged
+\end{lstlisting}
+
+\subsection{合并 —— git merge}
+
+合并是把两个分支的工作成果整合在一起。
+
+\subsubsection{Fast-Forward 合并（直线合并）}
+
+场景：main 分支在创建 feature 后没有新的提交。
+
+\begin{lstlisting}[numbers=none]
+合并前:
+  main:    A --- B
+                \
+  feature:        C --- D
+
+合并（git merge feature）后:
+  main:    A --- B --- C --- D
+  # Git 只是把 main 指针往前移动了，没有创建新的合并提交
+\end{lstlisting}
+
+\begin{lstlisting}
+# Fast-Forward 合并
+git switch main
+git merge feature              # main 直接移到 feature 的位置
+\end{lstlisting}
+
+\subsubsection{Three-Way 合并（分叉合并）}
+
+场景：main 和 feature 都有新的提交。
+
+\begin{lstlisting}[numbers=none]
+合并前:
+  main:    A --- B --- C
+                \
+  feature:        D --- E
+
+合并后:
+  main:    A --- B --- C --- F (merge commit)
+                \         /
+  feature:        D --- E
+  # Git 会创建新的合并提交 F，它有两个父提交
+\end{lstlisting}
+
+\begin{lstlisting}
+# 如果想禁用 Fast-Forward（显式创建合并提交）
+git merge --no-ff feature      # 即使可以 Fast-Forward 也创建合并节点
+# 在团队协作中 --no-ff 更常用，因为保留了分支历史
+\end{lstlisting}
+
+\subsection{合并冲突}
+
+当两个分支修改了\textbf{同一个文件的同一行}时，Git 无法自动判断哪个是正确版本，
+需要你手动解决。
+
+\subsubsection{制造冲突的示例}
+
+\begin{lstlisting}[numbers=none]
+1. 在 main 分支上修改 README.md 的第一行：
+   echo "Main Branch Line" > README.md
+   git add . && git commit -m "main 修改"
+
+2. 在 feature 分支上修改同一个文件的同一行：
+   git switch -c feature
+   echo "Feature Branch Line" > README.md
+   git add . && git commit -m "feature 修改"
+
+3. 切换回 main 合并 feature：
+   git switch main
+   git merge feature
+   # 输出：CONFLICT (content): Merge conflict in README.md
+\end{lstlisting}
+
+\subsubsection{冲突标记}
+
+\begin{lstlisting}
+# 冲突文件里的内容：
+<<<<<<< HEAD
+Main Branch Line              # 当前分支（main）的内容
+=======
+Feature Branch Line           # 要合并分支（feature）的内容
+>>>>>>> feature
+
+# 你需要手动编辑文件，决定保留什么
+\end{lstlisting}
+
+\subsubsection{解决冲突的完整步骤}
+
+\begin{lstlisting}
+# 1. 查看哪些文件冲突了
+git status
+# 输出：both modified:   README.md
+
+# 2. 编辑冲突文件，删除冲突标记，保留你想要的内容
+# 比如你决定两个都要：
+# Main Branch Line
+# Feature Branch Line
+
+# 3. 标记为已解决
+git add README.md
+
+# 4. 完成合并
+git commit
+# Git 会自动生成合并提交消息，你也可以修改
+
+# 5. 如果发现冲突太难解决，想回到合并前
+git merge --abort
+\end{lstlisting}
+
+\subsection{Rebase（变基）}
+
+Rebase 的原理是：把当前分支的提交\textbf{移植}到另一个分支的顶端。
+
+\subsubsection{Rebase vs Merge}
+
+\begin{lstlisting}[numbers=none]
+# Merge 的方式（保留分叉历史）：
+# main:   A --- B --- C --- F (merge commit)
+#               \         /
+# feature:       D --- E
+
+# Rebase 的方式（线性历史）：
+# main:   A --- B --- C
+#                         \
+# feature:                 D' --- E'  (新提交，哈希变了)
+# 然后把 main fast-forward 到 E'
+# main:   A --- B --- C --- D' --- E'
+\end{lstlisting}
+
+\begin{lstlisting}
+# Rebase 操作
+git switch feature
+git rebase main                # 把 feature 的提交搬到 main 的最新提交之后
+
+# 如果 rebase 过程中有冲突：
+# 1. 解决冲突
+# 2. git add <file>
+# 3. git rebase --continue
+# 或者 git rebase --abort 放弃 rebase
+\end{lstlisting}
+
+\subsubsection{交互式 Rebase —— 改写历史的瑞士军刀}
+
+\begin{lstlisting}
+# 修改最近 3 次提交
+git rebase -i HEAD~3
+# 这会打开一个编辑器，显示：
+pick 1a2b3c4 第一个提交
+pick 2b3c4d5 第二个提交
+pick 3c4d5e6 第三个提交
+
+# 把 pick 改成对应的命令：
+\end{lstlisting}
+
+\textbf{可用命令}：
+\begin{itemize}[itemsep=3pt]
+    \item \texttt{pick}（或 p）— 保留该提交
+    \item \texttt{reword}（或 r）— 只改提交消息，不改内容
+    \item \texttt{edit}（或 e）— 修改提交内容
+    \item \texttt{squash}（或 s）— 合并到上一个提交（保留提交消息）
+    \item \texttt{fixup}（或 f）— 合并到上一个提交（丢弃消息）
+    \item \texttt{drop}（或 d）— 删除该提交
+    \item \texttt{exec}（或 x）— 在此处执行 shell 命令
+\end{itemize}
+
+\textbf{常见用法}：把一堆零碎的提交合并成一个整洁的提交。
+
+\begin{lstlisting}[numbers=none]
+# 改前（杂乱的提交历史）：
+fix typo
+add comment
+finish feature
+
+# rebase -i 改成：
+pick finish feature
+fixup fix typo                  # 合并到上一个
+fixup add comment               # 合并到上一个
+
+# 改后（整洁的历史）：
+finish feature
+\end{lstlisting}
+
+\subsubsection{黄金法则 —— 永远记住！}
+
+\begin{center}
+\colorbox{yellow}{\parbox{0.9\textwidth}{\centering
+\textbf{绝不}对\textbf{已经推送到远程仓库}的提交执行 rebase！
+}}
+\end{center}
+
+因为 rebase 会改变提交的哈希值，如果你 rebase 了已推送的提交，
+下次 \texttt{git push} 会被拒绝（因为历史不一致）。
+即使强制推送（\texttt{git push --force}）成功，队友的仓库也会陷入混乱。
+
+\subsection{Cherry-Pick —— 精准挑选提交}
+
+有时候你不想合并整个分支，只想\textbf{挑某个分支中的一个提交}拿过来。
+
+\begin{lstlisting}
+# 把 feature 分支上的某个提交（哈希 abc123）应用到当前分支
+git cherry-pick abc123
+
+# 一次挑多个
+git cherry-pick abc123 def456
+
+# 如果有冲突，解决后：
+git cherry-pick --continue
+# 或者放弃：
+git cherry-pick --abort
+\end{lstlisting}
+
+使用场景：在 main 分支上发现了 feature 分支中的一个 bug 修复提交，
+没必要合并整个 feature 分支，用 cherry-pick 把那个修复提交拿过来即可。
+
+%====================================================================
+\section{远程仓库 —— 和世界协作}
+%====================================================================
+
+\subsection{远程仓库的概念}
+
+远程仓库（remote）是存放在\textbf{服务器}上的 Git 仓库。常见的有：
+
+\begin{itemize}[itemsep=3pt]
+    \item GitHub（全球最大的代码托管平台）
+    \item GitLab（企业级自托管方案）
+    \item Gitee（国内代码托管平台）
+\end{itemize}
+
+远程仓库让你的代码：
+\begin{enumerate}[itemsep=3pt]
+    \item 有了\textbf{备份}——电脑坏了也不怕
+    \item 可以\textbf{协作}——团队多人共同开发
+    \item 方便\textbf{分享}——开源项目
+\end{enumerate}
+
+\subsection{克隆已有仓库}
+
+\begin{lstlisting}
+# 克隆到当前目录（会创建同名文件夹）
+git clone https://github.com/username/repo.git
+
+# 克隆到指定目录名
+git clone https://github.com/username/repo.git my-folder
+
+# 克隆指定分支
+git clone -b feature https://github.com/username/repo.git
+\end{lstlisting}
+
+\subsection{管理远程仓库}
+
+\begin{lstlisting}
+# 查看已经配置的远程仓库
+git remote -v
+# 输出：
+# origin  https://github.com/username/repo.git (fetch)
+# origin  https://github.com/username/repo.git (push)
+
+# 添加新的远程仓库
+git remote add origin https://github.com/username/repo.git
+
+# 删除远程仓库
+git remote remove origin
+
+# 重命名远程仓库
+git remote rename origin upstream
+
+# 查看远程仓库的详细信息
+git remote show origin
+\end{lstlisting}
+
+\texttt{origin} 是远程仓库的默认名字，就像 \texttt{main} 是默认分支名一样。
+你可以改，但约定俗成就用 origin。
+
+\subsection{推送 —— git push}
+
+\begin{lstlisting}
+# 首次推送（必须用 -u 建立关联）
+git push -u origin main
+# -u 是 --set-upstream 的缩写
+# 之后就可以直接用 git push 了
+
+# 推送其他分支
+git push origin feature-login
+
+# 推送所有分支
+git push --all
+
+# 删除远程分支
+git push origin --delete feature-login
+
+# 强制推送（非常危险！会覆盖远程历史）
+git push --force origin main
+# 只在确定没有其他人使用这个分支时才用
+\end{lstlisting}
+
+\subsection{拉取 —— git pull 与 git fetch}
+
+这是初学者最容易混淆的地方。
+
+\begin{itemize}[itemsep=5pt]
+    \item \textbf{git fetch} — \textcolor{blue}{只下载，不合并}
+    \begin{itemize}
+        \item 从远程下载最新的提交到你的本地仓库
+        \item 但\textbf{不会修改你的工作区}
+        \item 你需要手动用 \texttt{git merge origin/main} 来合并
+        \item 安全，可以随时查看远程有什么变化后再决定
+    \end{itemize}
+
+    \item \textbf{git pull} — \textcolor{blue}{下载并自动合并}
+    \begin{itemize}
+        \item = \texttt{git fetch} + \texttt{git merge}
+        \item 一步到位
+        \item 但可能会产生多余的合并提交
+    \end{itemize}
+
+    \item \textbf{git pull --rebase} — \textcolor{blue}{推荐！}
+    \begin{itemize}
+        \item = \texttt{git fetch} + \texttt{git rebase}
+        \item 拉取远程更新后，把你本地的提交放在最上面
+        \item 保持历史线性整洁
+    \end{itemize}
+\end{itemize}
+
+\begin{lstlisting}
+# 查看远程有更新但不去合并
+git fetch origin
+
+# 查看本地和远程的区别
+git log main..origin/main --oneline
+
+# 确认无误后合并
+git merge origin/main
+
+# 或者一步到位（推荐用 rebase）
+git pull --rebase origin main
+
+# 如果 pull 有冲突，按常规冲突解决流程走
+\end{lstlisting}
+
+\subsection{标准协作流程}
+
+\begin{lstlisting}
+# 假设你在一个团队项目中
+
+# 1. 第一天：克隆项目
+git clone https://github.com/team/project.git
+cd project
+
+# 2. 创建功能分支开发
+git switch -c feature-user-page
+
+# 3. 开发过程中，每天上班先同步 main
+git switch main
+git pull --rebase               # 获取最新的 main
+git switch feature-user-page
+git rebase main                 # 你的分支也同步 main 的更新
+
+# 4. 提交你的工作
+git add .
+git commit -m "feat: 添加用户页面布局"
+git push origin feature-user-page
+
+# 5. 去 GitHub 上创建 Pull Request（PR）
+# 等待 code review...
+
+# 6. PR 合并后，删除本地分支
+git switch main
+git pull --rebase
+git branch -d feature-user-page
+\end{lstlisting}
+
+\subsection{SSH 与 HTTPS 的区别}
+
+\begin{longtable}{|p{3.5cm}|p{5cm}|p{5cm}|}
+\hline
+\textbf{特性} & \textbf{HTTPS} & \textbf{SSH} \\
+\hline
+克隆地址 & \texttt{https://github.com/...} & \texttt{git@github.com:...} \\
+\hline
+认证方式 & 每次 push 需要输入用户名密码 & 密钥对认证 \\
+\hline
+配置难度 & 简单，无需额外配置 & 需要生成 SSH 密钥并添加到 GitHub \\
+\hline
+推荐场景 & 快速开始、偶尔使用 & 日常频繁使用 \\
+\hline
+\end{longtable}
+
+\begin{lstlisting}
+# 配置 SSH（以 GitHub 为例）
+# 1. 生成密钥对
+ssh-keygen -t ed25519 -C "your_email@example.com"
+
+# 2. 查看公钥
+cat ~/.ssh/id_ed25519.pub
+
+# 3. 复制公钥，添加到 GitHub Settings > SSH and GPG keys
+
+# 4. 测试连接
+ssh -T git@github.com
+# 输出：Hi username! You've successfully authenticated...
+\end{lstlisting}
+
+%====================================================================
+\section{标签管理 —— 标记重要版本}
+%====================================================================
+
+标签用来给某个特定的提交打上\textbf{有意义的名称}，通常用于版本发布。
+
+\subsection{轻量标签 vs 附注标签}
+
+\begin{itemize}[itemsep=5pt]
+    \item \textbf{轻量标签（lightweight）}
+    \begin{itemize}
+        \item 只是一个指向提交的指针，像一个不会移动的分支
+        \item 创建：\texttt{git tag v1.0.0}
+        \item 适合临时标记或私用
+    \end{itemize}
+
+    \item \textbf{附注标签（annotated）}
+    \begin{itemize}
+        \item 作为完整对象存储在 Git 数据库中
+        \item 包含：创建者、邮箱、日期、标签消息
+        \item 可以用 GPG 签名验证真伪
+        \item 创建：\texttt{git tag -a v1.0.0 -m "发布 1.0.0"}
+        \item \textbf{推荐用于正式发布}
+    \end{itemize}
+\end{itemize}
+
+\begin{lstlisting}
+# 创建附注标签（推荐）
+git tag -a v1.0.0 -m "正式发布 1.0.0"
+
+# 为历史提交打标签
+git tag -a v0.9.0 abc123 -m "发布前的 beta 版本"
+
+# 查看标签
+git tag                           # 列出所有标签
+git tag -l "v1.*"                 # 搜索 v1.x 的标签
+git show v1.0.0                   # 查看标签详细信息
+
+# 推送标签
+git push origin v1.0.0            # 推送一个标签
+git push origin --tags            # 推送所有未推送的标签
+
+# 删除标签
+git tag -d v1.0.0                 # 删除本地
+git push origin --delete v1.0.0   # 删除远程
+
+# 切换到标签时创建分支（因为标签是只读的）
+git switch -c release-v1 v1.0.0
+\end{lstlisting}
+
+\textbf{语义化版本控制（SemVer）}：
+\begin{lstlisting}[numbers=none]
+vMAJOR.MINOR.PATCH
+   |     |     |
+   |     |     +-- PATCH: 修复 bug，向后兼容
+   |     +-- MINOR: 添加功能，向后兼容
+   +-- MAJOR: 不兼容的重大变更
+\end{lstlisting}
+
+%====================================================================
+\section{储藏（Stash）—— 临时保存工作现场}
+%====================================================================
+
+\subsection{什么时候需要 Stash？}
+
+你正在开发一个功能，改了 5 个文件，突然需要切换到另一个分支修一个紧急 bug。
+但这些改动还没完成，不想提交。怎么办？用 \texttt{git stash}。
+
+\begin{lstlisting}
+# 开发中...突然有紧急任务
+git stash                        # 保存工作区所有修改，工作区恢复干净
+# 输出：Saved working directory and index state WIP on main: abc123 ...
+
+# 切换到其他分支修 bug
+git switch hotfix
+# ...修完 bug 后...
+
+# 切回来恢复工作现场
+git switch main
+git stash pop                    # 恢复并删除栈顶的储藏
+\end{lstlisting}
+
+\subsection{Stash 的更多用法}
+
+\begin{lstlisting}
+# 储藏时加说明（方便查找）
+git stash save "用户列表页 WIP"
+
+# 查看所有储藏
+git stash list
+# 输出：
+# stash@{0}: On main: 用户列表页 WIP
+# stash@{1}: On main: 登录功能开发中
+
+# 恢复但不删除
+git stash apply                  # 恢复最近一个
+git stash apply stash@{1}        # 恢复指定的
+
+# 删除指定储藏
+git stash drop stash@{0}
+
+# 清空所有
+git stash clear
+
+# 储藏未跟踪的文件（默认只会储藏已跟踪的文件）
+git stash -u                     # -u = --include-untracked
+
+# 从某个储藏中创建新分支（如果恢复时有冲突，推荐用这个）
+git stash branch new-branch stash@{0}
+\end{lstlisting}
+
+Stash 是一个\textbf{栈结构}，后保存的在栈顶（stash@\{0\}）。
+
+%====================================================================
+\section{.gitignore —— 告诉 Git 忽略什么}
+%====================================================================
+
+\subsection{为什么要忽略文件？}
+
+你的项目里有很多文件是不需要被版本控制的：
+\begin{itemize}[itemsep=3pt]
+    \item 编译产物（\texttt{.pyc}、\texttt{.o}、\texttt{.exe}）
+    \item 依赖目录（\texttt{node\_modules/}、\texttt{vendor/}）
+    \item 系统文件（\texttt{.DS\_Store}、\texttt{Thumbs.db}）
+    \item 环境配置（\texttt{.env}、\texttt{*.local}）
+    \item IDE 配置（\texttt{.vscode/}、\texttt{.idea/}）
+    \item 日志文件（\texttt{*.log}）
+\end{itemize}
+
+\textbf{不忽略这些文件会导致}：
+\begin{itemize}[itemsep=3pt]
+    \item 仓库臃肿（\texttt{node\_modules} 可能有几百 MB）
+    \item 提交混乱（编译文件每个版本都变化）
+    \item 安全风险（\texttt{.env} 可能包含密码）
+\end{itemize}
+
+\subsection{语法规则}
+
+\begin{lstlisting}
+# 注释以 # 开头
+
+# 1. 忽略特定文件
+.DS_Store              # 忽略当前目录下的 .DS_Store
+.env                   # 忽略 .env
+
+# 2. 通配符
+*.log                  # 忽略所有 .log 结尾的文件
+debug.log              # 但 .gitignore 也可以针对具体文件
+
+# 3. 忽略目录（注意结尾的 /）
+node_modules/          # 忽略 node_modules 目录及其所有内容
+build/                 # 忽略 build 目录
+
+# 4. 取反（不忽略某个特定文件）
+*.log                  # 忽略所有 .log
+!important.log         # 但不忽略 important.log
+
+# 5. 只忽略根目录下的（不匹配子目录）
+/ToDo.txt              # 只忽略根目录下的 ToDo.txt
+                       # 不忽略 src/ToDo.txt
+
+# 6. 忽略所有目录下某类文件，但不包括子目录中的
+*/build/               # 匹配 a/build/ 但不匹配 a/b/build/
+
+# 7. 忽略除某文件外的所有文件（白名单模式）
+/*
+!src/
+!src/**/*.py           # 只跟踪 src 目录下的 .py 文件
+\end{lstlisting}
+
+\subsection{常见语言/项目的 .gitignore 模板}
+
+\begin{lstlisting}
+# Python 项目
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+.venv/
+env/
+
+# Node.js 项目
+node_modules/
+npm-debug.log*
+dist/
+build/
+.next/
+
+# Java 项目
+*.class
+*.jar
+*.war
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# LaTeX 项目（你的笔记项目用这个）
+*.aux
+*.log
+*.out
+*.toc
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+\end{lstlisting}
+
+\textbf{重要提醒}：如果文件已经被 Git 跟踪了，再加入 .gitignore 是不生效的！
+需要用 \texttt{git rm --cached} 先解除跟踪。
+
+%====================================================================
+\section{实用技巧与最佳实践}
+%====================================================================
+
+\subsection{别名（Alias）—— 少打字}
+
+\begin{lstlisting}
+git config --global alias.st status
+git config --global alias.co checkout
+git config --global alias.br branch
+git config --global alias.ci commit
+git config --global alias.unstage "reset HEAD"
+git config --global alias.last "log -1 HEAD"
+
+# 设置完后，git st 就等于 git status
+git st
+
+# 高级别名：显示漂亮的日志
+git config --global alias.tree "log --graph --oneline --all"
+# 用法：git tree
+
+# 更美观的版本
+git config --global alias.lg "log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit"
+\end{lstlisting}
+
+\subsection{查看日志的美化方式}
+
+\begin{lstlisting}
+# 一行一个提交，带图形
+git log --graph --oneline --all
+
+# 自定义格式（可以直接设为别名）
+git log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit
+# 效果：红色哈希 - 黄色分支名 提交消息 绿色时间 <蓝色作者>
+\end{lstlisting}
+
+\subsection{常见场景速查}
+
+\begin{lstlisting}
+# 1. 想在 main 上修改，但已经开发了一半
+git stash                      # 保存当前修改
+git switch main                # 切回 main
+# ...做完紧急修改并提交后...
+git switch feature             # 切回功能分支
+git stash pop                  # 恢复工作现场
+
+# 2. 提交到了 main，但应该提交到 feature 分支
+git branch feature             # 在当前提交创建 feature 分支
+git reset --hard HEAD~1        # main 退回一步
+git switch feature             # 切到 feature（提交还在）
+
+# 3. 想修改倒数第二次的提交消息
+git rebase -i HEAD~3
+# 把第二行的 pick 改成 r（reword），保存退出后修改消息
+
+# 4. 把多个零碎提交合并成一个
+git rebase -i HEAD~5
+# 除了第一个 pick，后面的都改成 s（squash）或 f（fixup）
+
+# 5. 想看看某个文件的历史修改
+git log -p -- README.md        # 看 README.md 的完整修改历史
+git blame README.md            # 每行代码是谁改的
+
+# 6. 批量修改最近的提交信息
+git rebase -i HEAD~5
+# 把要改的 pick 改成 r（reword）
+
+# 7. 找回误删的分支
+git reflog                     # 查看所有 HEAD 移动的历史
+# 输出：abc123 HEAD@{0}: Branch: deleted
+git switch -c recovered-branch abc123  # 在哈希处创建新分支
+\end{lstlisting}
+
+\subsection{救命的 reflog}
+
+\texttt{git reflog} 是 Git 的\textbf{操作日志}，记录了 HEAD 的所有移动记录。
+即使你 reset、rebase 搞乱了，也能通过 reflog 找回。
+
+\begin{lstlisting}
+# 查看最近的操作记录
+git reflog
+# 输出：
+# abc123 (HEAD -> main) HEAD@{0}: commit: 修复登录 bug
+# def456 HEAD@{1}: reset: moving to HEAD~1
+# ghi789 HEAD@{2}: commit: 测试功能
+# jkl012 HEAD@{3}: commit: 添加用户页面
+# 注意：reflog 只记录本地操作，每个仓库的 reflog 都不同
+
+# 最实用的场景：找回 reset --hard 丢失的提交
+git reset --hard HEAD~2        # 完了，回退太远了！
+git reflog                     # 查看历史
+git reset --hard ghi789        # 恢复回去
+\end{lstlisting}
+
+\subsection{二分查找 —— git bisect}
+
+当你发现一个 bug，但不知道是哪个提交引入的，可以用 bisect 二分查找。
+
+\begin{lstlisting}
+# 假设你有 100 个提交，手动排查要查 100 次
+# 用二分法最多查 log2(100) = 7 次
+
+# 开始二分查找
+git bisect start
+
+# 标记当前版本有 bug
+git bisect bad
+
+# 标记某个历史版本没有 bug（比如 50 个提交前的版本）
+git bisect good abc123
+
+# Git 会自动切换到中间的某个提交
+# 你测试这个版本，然后标记：
+git bisect good                # 如果这个版本没有问题
+git bisect bad                 # 如果这个版本有 bug
+
+# Git 会继续二分切换到下一个要测试的提交
+# 重复 good/bad...
+
+# 最终 Git 会告诉你是哪个提交引入的 bug
+# abcdef is the first bad commit
+
+# 结束 bisect
+git bisect reset
+\end{lstlisting}
+
+\textbf{自动化 bisect}：如果项目有测试脚本，可以让 Git 自动运行：
+
+\begin{lstlisting}
+git bisect start
+git bisect bad
+git bisect good abc123
+git bisect run python test.py   # 自动：测试通过 = good，失败 = bad
+\end{lstlisting}
+
+\subsection{子模块（Submodule）}
+
+当一个 Git 仓库需要引用另一个 Git 仓库时（比如项目引用了某个第三方库），
+可以使用 submodule。
+
+\begin{lstlisting}
+# 添加子模块
+git submodule add https://github.com/lib/lib.git libs/lib
+
+# 克隆包含子模块的项目
+git clone --recurse-submodules https://github.com/project.git
+
+# 更新子模块
+git submodule update --remote
+
+# 注意：子模块默认不会自动更新，需要手动更新
+\end{lstlisting}
+
+\subsection{提交信息规范 —— Conventional Commits}
+
+\textbf{为什么要规范提交消息？}
+\begin{itemize}[itemsep=3pt]
+    \item 方便生成 changelog
+    \item 更好的搜索和过滤
+    \item 自动化的版本号管理
+\end{itemize}
+
+\textbf{标准格式}：
+
+\begin{lstlisting}
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+\end{lstlisting}
+
+\textbf{常用类型}：
+\begin{longtable}{|p{3cm}|p{4cm}|p{5cm}|}
+\hline
+\textbf{类型} & \textbf{含义} & \textbf{示例} \\
+\hline
+feat & 新功能 & \texttt{feat: 添加用户注册功能} \\
+\hline
+fix & 修复 bug & \texttt{fix: 修复密码验证越界问题} \\
+\hline
+docs & 文档变更 & \texttt{docs: 更新 API 文档} \\
+\hline
+style & 代码格式 & \texttt{style: 格式化代码缩进} \\
+\hline
+refactor & 重构 & \texttt{refactor: 拆分用户验证模块} \\
+\hline
+test & 测试相关 & \texttt{test: 添加登录测试用例} \\
+\hline
+chore & 构建/工具 & \texttt{chore: 更新依赖版本} \\
+\hline
+perf & 性能优化 & \texttt{perf: 优化图片加载速度} \\
+\hline
+\end{longtable}
+
+\textbf{好例子 vs 坏例子}：
+
+\begin{lstlisting}[numbers=none]
+# 坏例子
+fix bug                             # 太模糊
+update file                         # 说了等于没说
+asdfgh                              # 毫无意义
+
+# 好例子
+fix(login): 修复密码为空时程序崩溃
+feat(user): 添加用户头像上传功能
+docs(readme): 更新安装步骤，添加 Windows 系统支持
+refactor(db): 提取数据库连接为独立模块
+chore: 更新 ESLint 配置，统一代码风格
+\end{lstlisting}
+
+\subsection{Git 钩子（Hooks）}
+
+Git 钩子是在特定事件发生时自动触发的脚本，放在 \texttt{.git/hooks/} 目录下。
+
+常见钩子：
+\begin{itemize}[itemsep=3pt]
+    \item \texttt{pre-commit}：提交前运行，用于检查代码风格、运行测试
+    \item \texttt{commit-msg}：检查提交消息格式是否符合规范
+    \item \texttt{pre-push}：推送前运行
+    \item \texttt{post-merge}：合并后自动执行
+\end{itemize}
+
+\begin{lstlisting}
+# 示例：pre-commit 钩子（.git/hooks/pre-commit）
+#!/bin/sh
+# 检查是否有未解决的冲突标记
+if grep -r "^<<<<<<<\|^>>>>>>>" --include="*.py" .; then
+    echo "错误：存在未解决的合并冲突！"
+    exit 1
+fi
+\end{lstlisting}
+
+注意：\texttt{.git/hooks/} 下的钩子\textbf{不会被提交}。团队共享钩子需要借助工具（如 Husky）。
+
+\subsection{工作流模型}
+
+\subsubsection{Git Flow —— 适合有固定发布周期的项目}
+
+\begin{lstlisting}[numbers=none]
+main ────────●──────────────●────────── (生产发布)
+              \            /
+develop ──────●──●──●────●──────────── (开发主线)
+               \    /  \    /
+feature/*       ●──●    ●──●           (功能开发)
+
+hotfix/* ──────●──●                    (紧急修复，从 main 切出)
+\end{lstlisting}
+
+\begin{itemize}[itemsep=3pt]
+    \item \texttt{main} — 生产分支，始终处于可部署状态
+    \item \texttt{develop} — 开发主分支，集成所有功能
+    \item \texttt{feature/*} — 从 develop 创建，完成后合并回 develop
+    \item \texttt{release/*} — 发布前准备，只修 bug 不加功能
+    \item \texttt{hotfix/*} — 从 main 创建，修复后合并回 main 和 develop
+\end{itemize}
+
+\textbf{优点}：流程清晰，适合大项目。\\
+\textbf{缺点}：分支多且复杂，不适合持续部署。
+
+\subsubsection{GitHub Flow —— 适合持续部署}
+
+\begin{lstlisting}[numbers=none]
+main ────●────────●───────────●────── (随时可部署)
+          \        /           /
+feature    ●──●──●            /
+                \            /
+fix              ●──●──●──●
+\end{lstlisting}
+
+\begin{itemize}[itemsep=3pt]
+    \item \texttt{main} 是唯一长期分支，始终可部署
+    \item 从 main 创建特性分支
+    \item 提交修改，频繁推送
+    \item 创建 Pull Request 进行 Code Review
+    \item Review 通过后合并到 main
+    \item 合并后立即部署
+\end{itemize}
+
+\textbf{优点}：极其简单，适合 CI/CD。\\
+\textbf{缺点}：不适合需要多个发布版本同时维护的项目。
+
+\subsubsection{GitLab Flow}
+
+GitLab 的变体，在 GitHub Flow 基础上增加了\textbf{环境分支}：
+
+\begin{lstlisting}[numbers=none]
+main ────●────────●───────────────
+           \        \
+staging      ●──────●──────────────
+                     \
+production            ●──────────
+\end{lstlisting}
+
+环境分支（\texttt{staging}、\texttt{production}）确保代码经过充分测试再上线。
+
+%====================================================================
+\section{内部原理速览 —— Git 是如何工作的？}
+%====================================================================
+
+\subsection{.git 目录全解析}
+
+\begin{lstlisting}[numbers=none]
+.git/
+|-- HEAD                  # 指向当前分支（如 ref: refs/heads/main）
+|-- config                # 本仓库的 Git 配置
+|-- description           # 仓库描述（给 GitWeb 用的）
+|-- index                 # 暂存区（二进制文件）
+|-- ORIG_HEAD             # 某些危险操作前 HEAD 的备份
+|-- FETCH_HEAD            # 最近一次 fetch 的来源信息
+|
+|-- objects/              # 对象存储（Git 的核心！）
+|   |-- 1a/               # 哈希前两位做目录名
+|   |   `-- b2c3d4e...    # 文件名 = 后 38 位
+|   |-- pack/             # 打包文件（压缩优化）
+|   `-- info/             # 包文件索引
+|
+|-- refs/                 # 引用
+|   |-- heads/            # 本地分支（每个文件存一个哈希）
+|   |   |-- main
+|   |   `-- feature
+|   |-- tags/             # 标签
+|   |   `-- v1.0.0
+|   `-- remotes/          # 远程分支
+|       `-- origin/
+|           `-- main
+|
+`-- hooks/                # Git 钩子脚本示例
+    |-- pre-commit.sample
+    |-- commit-msg.sample
+    `-- ...
+\end{lstlisting}
+
+\subsection{底层命令实验}
+
+理解 Git 的最佳方式是用底层命令亲手操作：
+
+\begin{lstlisting}
+# 1. 手动创建一个 blob 对象
+echo "Hello Git" | git hash-object --stdin -w
+# 输出：哈希值（同时在 .git/objects/ 下创建了文件）
+
+# 2. 查看对象类型
+git cat-file -t <hash>
+# 输出：blob
+
+# 3. 查看对象内容
+git cat-file -p <hash>
+# 输出：Hello Git
+
+# 4. 查看暂存区的内容
+git ls-files --stage
+
+# 5. 查看不同引用指向的提交
+git rev-parse HEAD           # 查看 HEAD 的哈希
+git rev-parse main           # 查看 main 分支的哈希
+git rev-parse v1.0.0         # 查看标签的哈希
+\end{lstlisting}
+
+\subsection{理解 git add、git commit 的底层操作}
+
+\begin{lstlisting}[numbers=none]
+当你执行 git add README.md 时，Git 实际上做了：
+1. 用 README.md 的内容创建一个 blob 对象
+2. 更新 index（暂存区），记录 README.md -> 该 blob
+
+当你执行 git commit 时，Git 实际上做了：
+1. 基于 index 创建一个 tree 对象（记录目录结构）
+2. 创建一个 commit 对象，指向该 tree，并记录父提交等元信息
+3. 将 HEAD 指向这个新的 commit
+\end{lstlisting}
+
+%====================================================================
+\section{常见问题 FAQ}
+%====================================================================
+
+\begin{enumerate}[itemsep=10pt]
+
+    \item \textbf{Q: 不小心把密码提交到仓库了怎么办？}
+    \begin{itemize}
+        \item 如果还没有 push：用 \texttt{git reset} 撤销提交
+        \item 如果已经 push：立即修改密码！然后 \texttt{git push --force} 覆盖历史（但 GitHub/GitLab 上可能已被爬虫抓取）
+        \item 真正的解决方案：以后用 \texttt{.gitignore} + 环境变量
+    \end{itemize}
+
+    \item \textbf{Q: 为什么我 git push 被拒绝了？}
+    \begin{itemize}
+        \item 最常见原因：远程仓库有新的提交你没拉到
+        \item 解决方案：\texttt{git pull --rebase} 后再 push
+    \end{itemize}
+
+    \item \textbf{Q: merge 和 rebase 到底选哪个？}
+    \begin{itemize}
+        \item 个人开发/小团队：用 rebase 保持历史整洁
+        \item 团队协作/公共分支：用 merge --no-ff 保留分支信息
+        \item 规则：对\textbf{尚未推送}的提交用 rebase，已推送的用 merge
+    \end{itemize}
+
+    \item \textbf{Q: git pull 时冲突了怎么办？}
+    \begin{itemize}
+        \item 和普通冲突一样解决，解决后 \texttt{git add} + \texttt{git commit}
+        \item 如果不想解决：\texttt{git merge --abort} 回到 pull 前的状态
+    \end{itemize}
+
+    \item \textbf{Q: 想放弃当前所有修改怎么办？}
+    \begin{itemize}
+        \item \texttt{git restore .} 撤销所有未 add 的修改
+        \item \texttt{git reset --hard HEAD} 撤销所有未提交的修改
+        \item \texttt{git clean -fd} 删除所有未跟踪的文件和目录
+        \item 组合使用：\texttt{git reset --hard HEAD \&\& git clean -fd}
+        \item \textbf{以上操作均不可恢复，谨慎使用！}
+    \end{itemize}
+
+    \item \textbf{Q: .gitignore 为什么不生效？}
+    \begin{itemize}
+        \item 检查文件名是否拼写正确（不是 .gitingore）
+        \item 检查是否已经被 Git 跟踪了（用 \texttt{git ls-files} 查看）
+        \item 如果已跟踪：先用 \texttt{git rm --cached} 解除跟踪
+    \end{itemize}
+
+\end{enumerate}
+
+%====================================================================
+\section{总结}
+%====================================================================
+
+Git 学习核心要点：
+
+\begin{enumerate}[itemsep=8pt]
+    \item \textbf{理解三个区域}：工作区、暂存区、仓库是 Git 的核心抽象。
+    所有操作都是这三个区域之间的数据移动。
+
+    \item \textbf{分支是指针}：创建和切换分支代价极低，所以\textbf{大胆创建分支}，
+    这是 Git 最大的优势。
+
+    \item \textbf{小步提交，频繁提交}：每次提交只做一件事，提交消息写清楚
+    \texttt{为什么}。这让你可以精准地回退到任何状态。
+
+    \item \textbf{拉取用 rebase，合并用 merge}：
+    \texttt{pull --rebase} 保持本地历史整洁，\texttt{merge --no-ff} 保留分支协作信息。
+
+    \item \textbf{推送前检查}：
+    \texttt{git status} 看状态，\texttt{git diff} 看内容，确认无误再推送。
+
+    \item \textbf{.gitignore 尽早配置}：项目一开始就配好，避免跟踪不必要的文件。
+
+    \item \textbf{遇到问题先 git status}：这是诊断一切问题的起点。
+
+    \item \textbf{不要惊慌}：Git 的大部分操作都可以撤销。
+    \texttt{reflog} 是你的最后一道防线，几乎可以找回一切。
+
+    \item \textbf{多用命令行}：GUI 工具虽然方便，但理解 Git 最好的方式还是命令行。
+
+    \item \textbf{练习是最好的老师}：开一个新仓库，故意制造冲突、练习 rebase、
+    试试 reset 和 revert。用多了自然熟练。
+\end{enumerate}
+
+\begin{center}
+\vspace{1cm}
+\textcolor{gray}{\small 学习 Git 最好的方式就是多用！祝编码愉快！}
+\end{center}
+
+\end{document}
